@@ -81,8 +81,37 @@ function uid(p=""){ return p + Math.random().toString(36).slice(2,10); }
    Global state & cache
    ------------------------- */
 let state = { user:null, view:"login", history:[], cache:{ courses:null, tests:null } };
-function pushView(v){ state.history.push(state.view); state.view = v; render(); }
-function back(){ if(state.history.length) state.view = state.history.pop(); else state.view="dashboard"; render(); }
+function saveSession(){
+  localStorage.setItem("lms_user", JSON.stringify(state.user));
+  localStorage.setItem("lms_view", state.view);
+  localStorage.setItem("lms_history", JSON.stringify(state.history));
+}
+
+function restoreSession(){
+  const u = localStorage.getItem("lms_user");
+  if(u){
+    state.user = JSON.parse(u);
+    state.view = localStorage.getItem("lms_view") || "dashboard";
+    state.history = JSON.parse(localStorage.getItem("lms_history") || "[]");
+  }
+}
+function pushView(v){
+  state.history.push(state.view);
+  state.view = v;
+  saveSession();
+  history.pushState({ view: v }, "");
+  render();
+}
+
+function back(){
+  if(state.history.length){
+    state.view = state.history.pop();
+  } else {
+    state.view = "dashboard";
+  }
+  saveSession();
+  render();
+}
 
 /* -------------------------
    Cache helpers
@@ -147,7 +176,13 @@ async function render(){
       const { data, error } = await supabaseClient.from("user_profiles").select("*").eq("email", em).maybeSingle();
       if(error) return alert("Login error");
       if(!data || data.password !== pw) return alert("Invalid credentials");
-      state.user = data; state.cache.courses = null; state.view = "dashboard"; state.history = []; render();
+      state.user = data;
+state.cache.courses = null;
+state.view = "dashboard";
+state.history = [];
+saveSession();
+history.replaceState({ view:"dashboard" }, "");
+render();
     });
     wrap.appendChild(inEmail); wrap.appendChild(inPw); wrap.appendChild(btn);
     app.appendChild(wrap); return;
@@ -202,10 +237,12 @@ aside.appendChild(nav);
 
 const logout = el("button",{class:"btn-outline-danger w-full mt-2"},["Logout"]);
 logout.addEventListener("click", ()=> { 
-  state.user=null; 
-  state.view="login"; 
-  state.history=[]; 
-  render(); 
+  localStorage.clear();
+state.user=null;
+state.view="login";
+state.history=[];
+history.replaceState({}, "");
+render();
 });
 aside.appendChild(logout);
 
@@ -867,7 +904,14 @@ function renderChangePassword(area){
 /* =========================
    Boot
    ========================= */
+restoreSession();
 render();
+
+window.addEventListener("popstate", () => {
+  if(state.user){
+    back();
+  }
+});
 
 </script>
 </body>

@@ -269,11 +269,11 @@ aside.appendChild(logout);
     el("div",{class:"text-xl font-semibold"},[ state.view === "dashboard" ? "Dashboard" : state.view ])
   ]));
 
-app.appendChild(hamburger);
-app.appendChild(overlay);
-container.appendChild(aside);
-container.appendChild(main);
-app.appendChild(container);
+  app.appendChild(hamburger);
+  app.appendChild(overlay);
+  container.appendChild(aside);
+  container.appendChild(main);
+  app.appendChild(container);
 
   // routing
   if(state.view === "dashboard") return renderDashboard(main);

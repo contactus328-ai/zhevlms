@@ -932,15 +932,13 @@ function renderChangePassword(area){
 /* =========================
    Boot
    ========================= */
-window.addEventListener("DOMContentLoaded", () => {
-  restoreSession();
-  render();
+restoreSession();
+render();
 
-  window.addEventListener("popstate", () => {
-    if(state.user){
-      back();
-    }
-  });
+window.addEventListener("popstate", () => {
+  if(state.user){
+    back();
+  }
 });
 
 </script>

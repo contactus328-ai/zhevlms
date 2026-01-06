@@ -57,7 +57,10 @@
 const SUPABASE_URL = "https://npfpinlrlomuciruqura.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5wZnBpbmxybG9tdWNpcnVxdXJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQxMzk2ODMsImV4cCI6MjA3OTcxNTY4M30.JEAMycHqo7ebDXSavR0gMlRv82ByoCibdn_LMKBHLTE";
 const STORAGE_BUCKET = "lms-files";
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = (window.supabase || window.Supabase).createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
 
 /* -------------------------
    DOM helpers

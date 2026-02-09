@@ -918,8 +918,57 @@ function renderChangePassword(area){
 /* =========================
    Boot
    ========================= */
-  function handleExcelUpload(e){
-    alert("Excel upload connected successfully");
+ function handleExcelUpload(e){
+  const file = e.target.files[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = function(evt){
+    try{
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      // rows[0] is header, start from row 1
+      rows.slice(1).forEach(row => {
+        if(!row || !row[0]) return;
+
+        const qId = uid("q_");
+
+        const options = [];
+
+        for(let i=1;i<=4;i++){
+          if(row[i]){
+            options.push({
+              id: uid("o_"),
+              text: String(row[i])
+            });
+          }
+        }
+
+        const correctIndex = parseInt(row[5]) - 1;
+        const correctOptionId = options[correctIndex]?.id || null;
+
+        questions.push({
+          id: qId,
+          text: String(row[0]),
+          options,
+          correctOptionId
+        });
+      });
+
+      renderQs();
+      alert("MCQs imported successfully");
+
+    }catch(err){
+      console.error(err);
+      alert("Error reading Excel file. Check format.");
+    }
+  };
+
+  reader.readAsArrayBuffer(file);
 }
 
 restoreSession();

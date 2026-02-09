@@ -594,7 +594,10 @@ wrap.appendChild(uploadLabel);
 wrap.appendChild(fileInput);
 
   const temp = window.tempEditTest || null;
-  let questions = [];
+	
+  window.currentQuestions = [];
+  let questions = window.currentQuestions;
+
 
 if (temp && temp.questions && Array.isArray(temp.questions)) {
     // If editing, load questions from Supabase
@@ -951,7 +954,7 @@ function renderChangePassword(area){
         const correctIndex = parseInt(row[5]) - 1;
         const correctOptionId = options[correctIndex]?.id || null;
 
-        questions.push({
+        window.currentQuestions.push({
           id: qId,
           text: String(row[0]),
           options,

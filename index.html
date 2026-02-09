@@ -268,6 +268,9 @@ aside.appendChild(logout);
   if(state.view === "admin.uploadLecture") return renderUploadLecture(main);
   if(state.view === "admin.uploadMaterial") return renderUploadMaterial(main);
   if(state.view === "admin.createTest") return renderCreateTest(main);
+	
+  if(state.view === "admin.fees") return renderFees(main);
+
   if(state.view === "courses") return renderCourses(main);
   if(state.view === "lectures") return renderLectures(main);
   if(state.view === "materials") return renderMaterials(main);

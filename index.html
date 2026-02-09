@@ -580,6 +580,19 @@ async function renderCreateTest(area){
   wrap.appendChild(sel); wrap.appendChild(titleInp); wrap.appendChild(qAskRow);
   const qArea = el("div",{class:"space-y-3 mb-3"}); wrap.appendChild(qArea);
 	
+  /* Upload MCQs from Excel (UI + safe handler) */
+
+const uploadLabel = el("div",{class:"font-semibold mt-3"},["Upload MCQs from Excel"]);
+
+const fileInput = el("input",{type:"file", class:"mb-3"});
+fileInput.accept = ".xlsx,.xls,.csv";
+
+/* Temporary safe handler so page does not break */
+fileInput.addEventListener("change", handleExcelUpload);
+
+wrap.appendChild(uploadLabel);
+wrap.appendChild(fileInput);
+
   const temp = window.tempEditTest || null;
   let questions = [];
 
@@ -905,6 +918,10 @@ function renderChangePassword(area){
 /* =========================
    Boot
    ========================= */
+  function handleExcelUpload(e){
+    alert("Excel upload connected successfully");
+}
+
 restoreSession();
 render();
 

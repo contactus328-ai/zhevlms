@@ -225,6 +225,8 @@ hamburger.addEventListener("click",()=>{
     addNavBtn("Create Course", "admin.createCourse");
     addNavBtn("Upload Lecture", "admin.uploadLecture");
     addNavBtn("Upload Material", "admin.uploadMaterial");
+	addNavBtn("Fees", "admin.fees");
+
     const createTestBtn = el("button",{class:"btn-outline w-full text-left"},["Create Test"]);
     createTestBtn.addEventListener("click", ()=>{
     window.tempEditTest = null;   // ← IMPORTANT: reset edit mode

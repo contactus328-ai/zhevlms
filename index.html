@@ -296,6 +296,71 @@ aside.appendChild(logout);
   main.appendChild(el("div",{class:"text-gray-500"},["Unknown view"]));
 }
 
+ /* =========================
+   Fees (Admin)
+   ========================= */
+async function renderFees(area){
+  clear(area);
+
+  area.appendChild(el("h3",{class:"text-xl font-semibold text-blue-700 mb-3"},["Pending Fees"]));
+
+  const { data: fees } = await supabaseClient
+    .from("fees")
+    .select("*")
+    .order("created_at",{ascending:false});
+
+  if(!fees || fees.length === 0){
+    area.appendChild(el("div",{class:"text-gray-500"},["No fee records found"]));
+    return;
+  }
+
+  const list = el("div",{class:"space-y-3"});
+
+  fees.forEach(fee=>{
+    if(fee.pending_amount <= 0) return;
+
+    const row = el("div",{class:"card p-3 flex flex-col gap-2"});
+
+    row.appendChild(el("div",{class:"font-semibold"},[
+      fee.student_name + " • Pending ₹" + fee.pending_amount
+    ]));
+
+    row.appendChild(el("div",{class:"text-sm small-muted"},[
+      "Due: " + (fee.due_date || "")
+    ]));
+
+    const btn = el("button",{class:"btn-primary"},["Send WhatsApp"]);
+
+    btn.addEventListener("click", ()=>{
+      sendWhatsAppReminder(
+        fee.parent_phone,
+        fee.student_name,
+        fee.pending_amount,
+        fee.course_name || "",
+        fee.due_date || ""
+      );
+    });
+
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
+
+  area.appendChild(list);
+}
+
+ function sendWhatsAppReminder(phone, student, pending, course, due){
+  const message =
+`Dear Parent,
+Fees of ₹${pending} for ${student} (${course}) is pending.
+Due date: ${due}.
+Please clear the dues.`;
+
+  const encoded = encodeURIComponent(message);
+  const url = `https://wa.me/${phone}?text=${encoded}`;
+
+  window.open(url, "_blank");
+}
+
 /* =========================
    DASHBOARD
    (tiles to navigate instead of sidebar duplicates)

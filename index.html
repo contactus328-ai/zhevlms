@@ -225,6 +225,7 @@ hamburger.addEventListener("click",()=>{
     addNavBtn("Create Course", "admin.createCourse");
     addNavBtn("Upload Lecture", "admin.uploadLecture");
     addNavBtn("Upload Material", "admin.uploadMaterial");
+	addNavBtn("Fees Management", "admin.fees");
     const createTestBtn = el("button",{class:"btn-outline w-full text-left"},["Create Test"]);
     createTestBtn.addEventListener("click", ()=>{
     window.tempEditTest = null;   // ← IMPORTANT: reset edit mode
@@ -265,6 +266,7 @@ aside.appendChild(logout);
   if(state.view === "admin.createCourse") return renderCreateCourse(main);
   if(state.view === "admin.uploadLecture") return renderUploadLecture(main);
   if(state.view === "admin.uploadMaterial") return renderUploadMaterial(main);
+  if(state.view === "admin.createTest") return renderCreateTest(main);
   if(state.view === "admin.createTest") return renderCreateTest(main);
   if(state.view === "courses") return renderCourses(main);
   if(state.view === "lectures") return renderLectures(main);
@@ -903,6 +905,234 @@ async function renderUploadMaterial(area){
   btn.addEventListener("click", async ()=>{ if(!sel.value || !title.value.trim() || !file.files[0]) return alert("All fields required"); const f=file.files[0]; const key=uid("mat_")+"_"+f.name.replace(/\s+/g,"_"); await supabaseClient.storage.from(STORAGE_BUCKET).upload(key,f); const { data:urlData } = await supabaseClient.storage.from(STORAGE_BUCKET).getPublicUrl(key); await supabaseClient.from("materials").insert([{ id: uid("m_"), course_id: sel.value, title: title.value.trim(), filename: f.name, data_url: urlData.publicUrl, uploaded_at: new Date().toISOString() }]); alert("Material uploaded"); pushView("dashboard"); });
   wrap.appendChild(sel); wrap.appendChild(title); wrap.appendChild(file); wrap.appendChild(btn); area.appendChild(wrap);
 }
+
+/* =========================
+   Fees Management (admin)
+   ========================= */
+async function renderFeesManagement(area){
+  clear(area);
+
+  area.appendChild(
+    el("h3",{class:"text-2xl font-semibold mb-4 text-blue-700"},["Fees Management"])
+  );
+
+  /* =========================
+     WhatsApp Message Generator
+     ========================= */
+  function generateWhatsAppMessage(studentName, remaining, dueDate){
+    const today = new Date();
+    const due = new Date(dueDate);
+    const diff = Math.floor((due - today)/(1000*60*60*24));
+
+    let message;
+
+    if(diff < -3){
+      message = `Dear Parent,
+
+The fee of ₹${remaining} for ${studentName} was due on ${dueDate}.
+The due date has passed more than 3 days.
+
+Kindly make the payment immediately.
+
+Thank you.`;
+    } else {
+      message = `Dear Parent,
+
+This is a reminder that ₹${remaining} for ${studentName} is pending.
+
+Kindly make the payment at the earliest.
+
+Thank you.`;
+    }
+
+    return encodeURIComponent(message);
+  }
+
+  /* =========================
+     Add / Update Toggle
+     ========================= */
+  const toggleBtn = el("button",{class:"btn-outline w-full mb-3"},["+ Add / Update Fee"]);
+  area.appendChild(toggleBtn);
+
+  const formCard = el("div",{class:"card p-4 mb-3 hidden"});
+  formCard.appendChild(
+    el("div",{class:"font-semibold text-blue-700 mb-2"},["Add / Update Student Fee"])
+  );
+
+  /* =========================
+     Fetch Students
+     ========================= */
+  const { data: students } = await supabaseClient
+    .from("user_profiles")
+    .select("id, name")
+    .eq("role","student")
+    .order("name",{ascending:true});
+
+  /* =========================
+     Search Filter
+     ========================= */
+  const searchInput = el("input",{
+    class:"input mb-2",
+    placeholder:"Search student name..."
+  });
+
+  const studentSelect = el("select",{class:"input mb-2"});
+  studentSelect.appendChild(el("option",{value:""},["Select Student"]));
+
+  function populateDropdown(filter=""){
+    studentSelect.innerHTML = "";
+    studentSelect.appendChild(el("option",{value:""},["Select Student"]));
+
+    (students||[])
+      .filter(s => s.name.toLowerCase().includes(filter.toLowerCase()))
+      .forEach(s=>{
+        studentSelect.appendChild(
+          el("option",{value:s.id},[s.name])
+        );
+      });
+  }
+
+  populateDropdown();
+
+  searchInput.addEventListener("input",()=>{
+    populateDropdown(searchInput.value.trim());
+  });
+
+  formCard.appendChild(searchInput);
+  formCard.appendChild(studentSelect);
+
+  /* Parent Phone */
+  const parentPhoneInput = el("input",{
+    class:"input mb-2",
+    placeholder:"Parent Phone (Unique)"
+  });
+  formCard.appendChild(parentPhoneInput);
+
+  /* Frequency */
+  const frequencySelect = el("select",{class:"input mb-2"});
+  frequencySelect.appendChild(el("option",{value:""},["Select Frequency"]));
+  frequencySelect.appendChild(el("option",{value:"monthly"},["Monthly"]));
+  frequencySelect.appendChild(el("option",{value:"yearly"},["Yearly"]));
+  formCard.appendChild(frequencySelect);
+
+  /* Total Amount */
+  const totalAmountInput = el("input",{
+    class:"input mb-2",
+    type:"number",
+    placeholder:"Total Amount"
+  });
+  formCard.appendChild(totalAmountInput);
+
+  /* Paid Amount */
+  const paidAmountInput = el("input",{
+    class:"input mb-2",
+    type:"number",
+    placeholder:"Paid Amount (Optional)"
+  });
+  formCard.appendChild(paidAmountInput);
+
+  /* Due Date */
+  const dueDateInput = el("input",{
+    class:"input mb-2",
+    type:"date"
+  });
+  formCard.appendChild(dueDateInput);
+
+  frequencySelect.addEventListener("change",()=>{
+    const today = new Date();
+    if(frequencySelect.value==="monthly") today.setMonth(today.getMonth()+1);
+    if(frequencySelect.value==="yearly") today.setFullYear(today.getFullYear()+1);
+    dueDateInput.value = today.toISOString().split("T")[0];
+  });
+
+  /* Save Fee */
+  const saveBtn = el("button",{class:"btn-primary w-full mt-2"},["Save Fee"]);
+  formCard.appendChild(saveBtn);
+
+  saveBtn.addEventListener("click", async ()=>{
+    if(!studentSelect.value) return alert("Select student");
+    if(!parentPhoneInput.value.trim()) return alert("Parent phone required");
+    if(!frequencySelect.value) return alert("Select frequency");
+    if(!totalAmountInput.value) return alert("Enter total amount");
+    if(!dueDateInput.value) return alert("Select due date");
+
+    const total = parseFloat(totalAmountInput.value);
+    const paid = parseFloat(paidAmountInput.value||0);
+    if(paid > total) return alert("Paid amount cannot exceed total");
+
+    const studentName = students.find(s=>s.id===studentSelect.value)?.name;
+
+    await supabaseClient.from("fees").insert([{
+      id: uid("fee_"),
+      student_id: studentSelect.value,
+      student_name: studentName,
+      parent_phone: parentPhoneInput.value.trim(),
+      frequency: frequencySelect.value,
+      total_amount: total,
+      paid_amount: paid,
+      due_date: dueDateInput.value,
+      status: paid===total ? "paid":"pending",
+      created_at: new Date().toISOString()
+    }]);
+
+    alert("Fee saved successfully");
+    renderFeesManagement(area);
+  });
+
+  area.appendChild(formCard);
+  toggleBtn.addEventListener("click",()=>formCard.classList.toggle("hidden"));
+
+  /* =========================
+     Fetch Fees
+     ========================= */
+  const { data: fees } = await supabaseClient
+    .from("fees")
+    .select("*")
+    .order("created_at",{ascending:false});
+
+  const activeFees = (fees||[]).filter(f=>f.status!=="paid");
+
+  /* =========================
+     Bulk WhatsApp
+     ========================= */
+  const bulkBtn = el("button",{class:"btn-primary w-full mb-3"},["Send All Pending Reminders"]);
+  bulkBtn.addEventListener("click",()=>{
+    activeFees.forEach(f=>{
+      const remaining = f.total_amount - f.paid_amount;
+      const msg = generateWhatsAppMessage(f.student_name,remaining,f.due_date);
+      window.open(`https://wa.me/91${f.parent_phone}?text=${msg}`,"_blank");
+    });
+  });
+  area.appendChild(bulkBtn);
+
+  /* =========================
+     Active Fee Cards
+     ========================= */
+  area.appendChild(el("div",{class:"font-semibold text-blue-700 mb-2"},["Active Fees"]));
+
+  if(activeFees.length===0){
+    area.appendChild(
+      el("div",{class:"card p-3 text-sm small-muted mb-3"},
+        ["No active fee records."]
+      )
+    );
+  }
+
+  for(const f of activeFees){
+    const remaining = f.total_amount - f.paid_amount;
+
+    const card = el("div",{class:"card p-3 mb-3"});
+    card.appendChild(el("div",{class:"font-semibold"},[f.student_name]));
+    card.appendChild(el("div",{class:"text-sm small-muted"},[`Parent: ${f.parent_phone}`]));
+    card.appendChild(el("div",{class:"text-sm"},[`Frequency: ${f.frequency}`]));
+    card.appendChild(el("div",{class:"text-sm"},[`Total: ₹${f.total_amount}`]));
+    card.appendChild(el("div",{class:"text-sm"},[`Paid: ₹${f.paid_amount}`]));
+    card.appendChild(el("div",{class:"text-sm mb-2"},[`Remaining: ₹${remaining}`]));
+    card.appendChild(el("div",{class:"text-sm mb-3"},[`Due: ${f.due_date}`]));
+
+    const waBtn = el("button",{class:"btn-outline w-full mb-2"},["Send WhatsApp"]);
+    waBtn.addEventListener("click",()=>{
+      const m
 
 /* =========================
    Change password (student)

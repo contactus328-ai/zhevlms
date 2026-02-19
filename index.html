@@ -174,10 +174,25 @@ async function render(){
     btn.addEventListener("click", async ()=>{
       const em = inEmail.value.trim().toLowerCase(), pw = inPw.value;
       if(!em || !pw) return alert("Enter credentials");
-      const { data, error } = await supabaseClient.from("user_profiles").select("*").eq("email", em).maybeSingle();
-      if(error) return alert("Login error");
-      if(!data || data.password !== pw) return alert("Invalid credentials");
-      state.user = data;
+      
+		const { data: loginData, error: loginError } =
+await supabaseClient.auth.signInWithPassword({
+  email: em,
+  password: pw
+});
+
+if(loginError){
+  return alert("Invalid Login");
+}
+
+const { data: profile } = await supabaseClient
+.from("user_profiles")
+.select("*")
+.eq("email", em)
+.single();
+
+state.user = profile;
+
 state.cache.courses = null;
 state.view = "dashboard";
 state.history = [];

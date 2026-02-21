@@ -267,7 +267,7 @@ aside.appendChild(logout);
   if(state.view === "admin.uploadLecture") return renderUploadLecture(main);
   if(state.view === "admin.uploadMaterial") return renderUploadMaterial(main);
   if(state.view === "admin.createTest") return renderCreateTest(main);
-  if(state.view === "admin.fees") return renderFeesManagement(main);
+  if(state.view === "admin.createTest") return renderCreateTest(main);
   if(state.view === "courses") return renderCourses(main);
   if(state.view === "lectures") return renderLectures(main);
   if(state.view === "materials") return renderMaterials(main);
@@ -590,15 +590,16 @@ const fileInput = el("input",{type:"file", class:"mb-3"});
 fileInput.accept = ".xlsx,.xls,.csv";
 
 /* Temporary safe handler so page does not break */
+fileInput.addEventListener("change", handleExcelUpload);
 
 wrap.appendChild(uploadLabel);
 wrap.appendChild(fileInput);
 
-fileInput.addEventListener("change", handleExcelUpload);
-
   const temp = window.tempEditTest || null;
 	
-  let questions = [];
+  window.currentQuestions = [];
+  let questions = window.currentQuestions;
+
 
 if (temp && temp.questions && Array.isArray(temp.questions)) {
     // If editing, load questions from Supabase
@@ -622,59 +623,6 @@ if (temp && temp.questions && Array.isArray(temp.questions)) {
     const delQ = el("button",{class:"btn-outline text-sm ml-2 text-red-600"},["Delete question"]); delQ.addEventListener("click", ()=> { if(!confirm("Are you sure?")) return; const i=questions.findIndex(x=>x.id===q.id); if(i>-1) questions.splice(i,1); renderQs(); });
     box.appendChild(opts); box.appendChild(addOpt); box.appendChild(delQ); qArea.appendChild(box);
   }); }
-
-function handleExcelUpload(e){
-  const file = e.target.files[0];
-  if(!file) return;
-
-  const reader = new FileReader();
-
-  reader.onload = function(evt){
-    try{
-      const data = new Uint8Array(evt.target.result);
-      const workbook = XLSX.read(data, { type: "array" });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-	  questions = [];
-
-      rows.slice(1).forEach(row => {
-        if(!row || !row[0]) return;
-
-        const qId = uid("q_");
-        const options = [];
-
-        for(let i=1;i<=4;i++){
-          if(row[i]){
-            options.push({
-              id: uid("o_"),
-              text: String(row[i])
-            });
-          }
-        }
-
-        const correctIndex = parseInt(row[5]) - 1;
-        const correctOptionId = options[correctIndex]?.id || null;
-
-        questions.push({
-          id: qId,
-          text: String(row[0]),
-          options,
-          correctOptionId
-        });
-      });
-
-      renderQs();
-      alert("MCQs imported successfully");
-
-    }catch(err){
-      console.error(err);
-      alert("Error reading Excel file.");
-    }
-  };
-
-  reader.readAsArrayBuffer(file);
-}
 
   const addQ = el("button",{class:"btn-outline"},["Add Question"]); addQ.addEventListener("click", ()=> { questions.push({ id: uid("q_"), text:"", options:[ {id:uid("o_"), text:""}, {id:uid("o_"), text:""} ], correctOptionId:null }); renderQs(); });
 
@@ -1155,7 +1103,6 @@ Thank you.`;
       window.open(`https://wa.me/91${f.parent_phone}?text=${msg}`,"_blank");
     });
   });
-
   area.appendChild(bulkBtn);
 
   /* =========================
@@ -1185,14 +1132,7 @@ Thank you.`;
 
     const waBtn = el("button",{class:"btn-outline w-full mb-2"},["Send WhatsApp"]);
     waBtn.addEventListener("click",()=>{
-  const remaining = f.total_amount - f.paid_amount;
-  const msg = generateWhatsAppMessage(f.student_name, remaining, f.due_date);
-  window.open(`https://wa.me/91${f.parent_phone}?text=${msg}`,"_blank");
-});
-
-card.appendChild(waBtn);
-area.appendChild(card);
-}
+      const m
 
 /* =========================
    Change password (student)
@@ -1211,6 +1151,58 @@ function renderChangePassword(area){
 /* =========================
    Boot
    ========================= */
+ function handleExcelUpload(e){
+  const file = e.target.files[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = function(evt){
+    try{
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      // rows[0] is header, start from row 1
+      rows.slice(1).forEach(row => {
+        if(!row || !row[0]) return;
+
+        const qId = uid("q_");
+
+        const options = [];
+
+        for(let i=1;i<=4;i++){
+          if(row[i]){
+            options.push({
+              id: uid("o_"),
+              text: String(row[i])
+            });
+          }
+        }
+
+        const correctIndex = parseInt(row[5]) - 1;
+        const correctOptionId = options[correctIndex]?.id || null;
+
+        window.currentQuestions.push({
+          id: qId,
+          text: String(row[0]),
+          options,
+          correctOptionId
+        });
+      });
+
+      renderQs();
+      alert("MCQs imported successfully");
+
+    }catch(err){
+      console.error(err);
+      alert("Error reading Excel file. Check format.");
+    }
+  };
+
+  reader.readAsArrayBuffer(file);
+}
 
 restoreSession();
 render();

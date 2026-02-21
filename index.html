@@ -344,7 +344,13 @@ async function renderFeesManagement(area){
     .eq("role","student")
     .order("name",{ascending:true});
 
-  const formCard = el("div",{class:"card p-4 mb-4"});
+  const formWrapper = el("div",{class:"mb-4"});
+  const toggleBtn = el("button",{class:"btn-outline w-full mb-2"},["Add / Update Fee"]);
+  const formCard = el("div",{class:"card p-4 hidden"});
+
+  toggleBtn.addEventListener("click",()=>{
+  formCard.classList.toggle("hidden");
+});
   formCard.appendChild(el("h4",{class:"font-semibold mb-3 text-blue-700"},["Add / Update Fee"]));
 
   let editingId = null;
@@ -411,8 +417,9 @@ if(error){
 }
 
 console.log("Inserted:", data);
-alert("Fee saved successfully");
+    alert("Fee saved successfully");
     }
+	formCard.classList.add("hidden");
 
     renderFeesManagement(area);
   });
@@ -425,7 +432,9 @@ alert("Fee saved successfully");
   formCard.appendChild(startDateInput);
   formCard.appendChild(saveBtn);
 
-  area.appendChild(formCard);
+  formWrapper.appendChild(toggleBtn);
+  formWrapper.appendChild(formCard);
+  area.appendChild(formWrapper);
 
   const { data: fees } = await supabaseClient
     .from("fees")

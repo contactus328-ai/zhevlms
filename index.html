@@ -478,7 +478,6 @@ if(paid > total)
 
     const student = students.find(s=>s.id===studentId);
     const pending = total - paid;
-    due_date: startDateInput.value,
 
     const payload = {
       student_id: studentId,
@@ -488,7 +487,7 @@ if(paid > total)
       total_amount: total,
       paid_amount: paid,
       pending_amount: pending,
-      due_date: nextDue,
+	  due_date: startDateInput.value,
       status: pending <= 0 ? "paid" : "pending",
       created_at: new Date().toISOString()
     };

@@ -1115,21 +1115,17 @@ Thank you.`;
     const studentName = students.find(s=>s.id===studentSelect.value)?.name;
 
     await supabaseClient.from("fees").insert([{
-  id: uid("fee_"),
-  student_id: studentSelect.value,
-  student_name: studentName,
-  course_name: frequencySelect.value,
-
-  total_fees: total,
-  fees_paid: paid,
-
-  payment_status: paid===total ? "Paid" : "Pending",
-
-  due_date: dueDateInput.value,
-  transaction_id: parentPhoneInput.value.trim(),
-
-  created_at: new Date().toISOString()
-}]);
+      id: uid("fee_"),
+      student_id: studentSelect.value,
+      student_name: studentName,
+      parent_phone: parentPhoneInput.value.trim(),
+      frequency: frequencySelect.value,
+      total_amount: total,
+      paid_amount: paid,
+      due_date: dueDateInput.value,
+      status: paid===total ? "paid":"pending",
+      created_at: new Date().toISOString()
+    }]);
 
     alert("Fee saved successfully");
     renderFeesManagement(area);
@@ -1146,7 +1142,7 @@ Thank you.`;
     .select("*")
     .order("created_at",{ascending:false});
 
-  const activeFees = (fees||[]).filter(f=>f.payment_status!=="Paid");
+  const activeFees = (fees||[]).filter(f=>f.status!=="paid");
 
   /* =========================
      Bulk WhatsApp
@@ -1154,7 +1150,7 @@ Thank you.`;
   const bulkBtn = el("button",{class:"btn-primary w-full mb-3"},["Send All Pending Reminders"]);
   bulkBtn.addEventListener("click",()=>{
     activeFees.forEach(f=>{
-      const remaining = f.total_fees - f.fees_paid;
+      const remaining = f.total_amount - f.paid_amount;
       const msg = generateWhatsAppMessage(f.student_name,remaining,f.due_date);
       window.open(`https://wa.me/91${f.parent_phone}?text=${msg}`,"_blank");
     });
@@ -1197,8 +1193,6 @@ Thank you.`;
 card.appendChild(waBtn);
 area.appendChild(card);
 }
-
-}   // ← ADD THIS LINE (closes renderFeesManagement)
 
 /* =========================
    Change password (student)

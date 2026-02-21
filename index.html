@@ -318,6 +318,20 @@ function normalizeFeeRecord(fee){
     status: String(fee.status || fee.payment_status || (pending <= 0 ? "paid" : "pending")).toLowerCase()
   };
 }
+/* =========================
+   Advanced Fees Management
+   ========================= */
+
+function calculateNextDueDate(startDate, frequency){
+  const d = new Date(startDate);
+
+  if(frequency === "Monthly") d.setMonth(d.getMonth() + 1);
+  if(frequency === "Quarterly") d.setMonth(d.getMonth() + 3);
+  if(frequency === "Half-Yearly") d.setMonth(d.getMonth() + 6);
+  if(frequency === "Yearly") d.setFullYear(d.getFullYear() + 1);
+
+  return d.toISOString().split("T")[0];
+}
 
 async function renderFeesManagement(area){
   clear(area);
@@ -333,6 +347,8 @@ async function renderFeesManagement(area){
   const formCard = el("div",{class:"card p-4 mb-4"});
   formCard.appendChild(el("h4",{class:"font-semibold mb-3 text-blue-700"},["Add / Update Fee"]));
 
+  let editingId = null;
+
   const studentSelect = el("select",{class:"input mb-2"});
   studentSelect.appendChild(el("option",{value:""},["Select Student"]));
   (students || []).forEach(st=>{
@@ -347,55 +363,45 @@ async function renderFeesManagement(area){
 
   const totalInput = el("input",{class:"input mb-2",type:"number",placeholder:"Total Fees"});
   const paidInput = el("input",{class:"input mb-2",type:"number",placeholder:"Fees Paid"});
-  const dueDateInput = el("input",{class:"input mb-2",type:"date"});
+  const startDateInput = el("input",{class:"input mb-2",type:"date"});
 
   const saveBtn = el("button",{class:"btn-primary w-full"},["Save Fee"]);
 
   saveBtn.addEventListener("click", async ()=>{
     const studentId = studentSelect.value;
-    const total = Number(totalInput.value || 0);
-    const paid = Number(paidInput.value || 0);
     const phone = parentPhoneInput.value.trim();
+    const total = Number(totalInput.value);
+    const paid = Number(paidInput.value);
+    const frequency = frequencySelect.value;
+    const startDate = startDateInput.value;
 
-    if(!studentId) return alert("Please select a student");
-    if(!phone) return alert("Please enter parent phone");
-    if(total <= 0) return alert("Total fees must be greater than 0");
-    if(paid < 0) return alert("Paid amount cannot be negative");
-    if(paid > total) return alert("Paid amount cannot exceed total fees");
+    if(!studentId || !phone || !total || !startDate)
+      return alert("All fields required");
 
-    const student = (students || []).find(s=>s.id===studentId);
-    const pending = Math.max(total - paid, 0);
+    const student = students.find(s=>s.id===studentId);
+    const pending = total - paid;
+    const nextDue = calculateNextDueDate(startDate, frequency);
 
     const payload = {
       student_id: studentId,
-      student_name: student?.name || "",
+      student_name: student.name,
       parent_phone: phone,
-      frequency: frequencySelect.value,
+      frequency,
       total_amount: total,
       paid_amount: paid,
       pending_amount: pending,
-      due_date: dueDateInput.value || null,
-      status: pending <= 0 ? "paid" : "pending"
+      due_date: nextDue,
+      status: pending <= 0 ? "paid" : "pending",
+      created_at: new Date().toISOString()
     };
 
-    const { data: existing } = await supabaseClient
-      .from("fees")
-      .select("id")
-      .eq("student_id", studentId)
-      .eq("frequency", frequencySelect.value)
-      .eq("due_date", dueDateInput.value || null)
-      .maybeSingle();
-
-    if(existing){
-      await supabaseClient.from("fees").update(payload).eq("id", existing.id);
-      alert("Fee updated successfully");
+    if(editingId){
+      await supabaseClient.from("fees").update(payload).eq("id", editingId);
+      editingId = null;
+      alert("Fee updated");
     } else {
-      await supabaseClient.from("fees").insert([{
-        id: uid("fee_"),
-        created_at: new Date().toISOString(),
-        ...payload
-      }]);
-      alert("Fee saved successfully");
+      await supabaseClient.from("fees").insert([{ id: uid("fee_"), ...payload }]);
+      alert("Fee saved");
     }
 
     renderFeesManagement(area);
@@ -406,8 +412,9 @@ async function renderFeesManagement(area){
   formCard.appendChild(frequencySelect);
   formCard.appendChild(totalInput);
   formCard.appendChild(paidInput);
-  formCard.appendChild(dueDateInput);
+  formCard.appendChild(startDateInput);
   formCard.appendChild(saveBtn);
+
   area.appendChild(formCard);
 
   const { data: fees } = await supabaseClient
@@ -415,42 +422,63 @@ async function renderFeesManagement(area){
     .select("*")
     .order("created_at",{ascending:false});
 
-  if(!fees || fees.length === 0){
+  if(!fees || fees.length===0){
     area.appendChild(el("div",{class:"text-gray-500"},["No fee records found"]));
     return;
   }
 
-  const normalizedFees = fees.map(normalizeFeeRecord);
-  const activeFees = normalizedFees.filter(f=>f.pendingAmount > 0 && f.status !== "paid");
+  fees.forEach(fee=>{
+    const card = el("div",{class:"card p-4 mb-3"});
+    card.appendChild(el("div",{class:"font-semibold text-lg"},[fee.student_name]));
+    card.appendChild(el("div",{class:"text-sm"},["Parent Phone: "+fee.parent_phone]));
+    card.appendChild(el("div",{class:"text-sm"},["Frequency: "+fee.frequency]));
+    card.appendChild(el("div",{class:"text-sm"},["Total: ₹"+fee.total_amount]));
+    card.appendChild(el("div",{class:"text-sm"},["Paid: ₹"+fee.paid_amount]));
+    card.appendChild(el("div",{class:"text-sm font-semibold"},["Pending: ₹"+fee.pending_amount]));
+    card.appendChild(el("div",{class:"text-sm"},["Next Due: "+fee.due_date]));
 
-  activeFees.forEach(fee=>{
-    const card = el("div",{class:"card p-3 mb-3"});
-    card.appendChild(el("div",{class:"font-semibold"},[fee.studentName]));
-    card.appendChild(el("div",{class:"text-sm"},[`Pending: ₹${fee.pendingAmount}`]));
+    const actions = el("div",{class:"flex gap-2 mt-3"});
 
-    const waBtn = el("button",{class:"btn-outline mt-2"},["Send WhatsApp"]);
-    waBtn.addEventListener("click",()=>{
-      sendWhatsAppReminder(fee.parentPhone, fee.studentName, fee.pendingAmount, fee.frequency, fee.dueDate);
+    const editBtn = el("button",{class:"btn-outline text-sm"},["Edit"]);
+    editBtn.addEventListener("click",()=>{
+      editingId = fee.id;
+      studentSelect.value = fee.student_id;
+      parentPhoneInput.value = fee.parent_phone;
+      frequencySelect.value = fee.frequency;
+      totalInput.value = fee.total_amount;
+      paidInput.value = fee.paid_amount;
+      startDateInput.value = fee.due_date;
+      window.scrollTo(0,0);
     });
 
-    card.appendChild(waBtn);
+    const waBtn = el("button",{class:"btn-outline text-sm"},["WhatsApp"]);
+    waBtn.addEventListener("click",()=>{
+      sendWhatsAppReminder(
+        fee.parent_phone,
+        fee.student_name,
+        fee.pending_amount,
+        fee.frequency,
+        fee.due_date
+      );
+    });
+
+    actions.appendChild(editBtn);
+    actions.appendChild(waBtn);
+
+    card.appendChild(actions);
     area.appendChild(card);
   });
 }
 
 function sendWhatsAppReminder(phone, student, pending, course, due){
-  const normalizedPhone = String(phone || "").replace(/\D/g, "");
-
+  const number = String(phone).replace(/\D/g,"");
   const message =
 `Dear Parent,
-Fees of ₹${pending} for ${student} (${course || "Course"}) is pending.
-Due date: ${due || "N/A"}.
+Fees of ₹${pending} for ${student} (${course}) is pending.
+Next Due Date: ${due}.
 Please clear the dues.`;
 
-  const encoded = encodeURIComponent(message);
-  const url = `https://wa.me/${normalizedPhone}?text=${encoded}`;
-
-  window.open(url, "_blank");
+  window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`,"_blank");
 }
 
 /* =========================

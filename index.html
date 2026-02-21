@@ -361,7 +361,19 @@ async function renderFeesManagement(area){
     studentSelect.appendChild(el("option",{value:st.id},[st.name]));
   });
 
-  const parentPhoneInput = el("input",{class:"input mb-2",placeholder:"Parent Phone"});
+  const parentPhoneInput = el("input",{
+  class:"input mb-2",
+  placeholder:"Parent Phone (10 digits)",
+  type:"tel",
+  maxlength:"10"
+});
+
+parentPhoneInput.addEventListener("input", ()=>{
+  parentPhoneInput.value = parentPhoneInput.value
+    .replace(/\D/g,"")   // remove non-numbers
+    .slice(0,10);        // limit to 10 digits
+});
+	
   const frequencySelect = el("select",{class:"input mb-2"});
   ["Monthly","Quarterly","Half-Yearly","Yearly"].forEach(freq=>{
     frequencySelect.appendChild(el("option",{value:freq},[freq]));
@@ -381,8 +393,23 @@ async function renderFeesManagement(area){
     const frequency = frequencySelect.value;
     const startDate = startDateInput.value;
 
-    if(!studentId || !phone || !total || !startDate)
-      return alert("All fields required");
+if(!studentId || !phone || !total || !startDate)
+  return alert("All fields required");
+
+if(phone.length !== 10)
+  return alert("Parent phone must be exactly 10 digits");
+
+if(!/^[6-9]\d{9}$/.test(phone))
+  return alert("Enter valid Indian mobile number (must start with 6-9)");
+
+if(total <= 0)
+  return alert("Total amount must be greater than 0");
+
+if(paid < 0)
+  return alert("Paid amount cannot be negative");
+
+if(paid > total)
+  return alert("Paid amount cannot exceed total amount");
 
     const student = students.find(s=>s.id===studentId);
     const pending = total - paid;

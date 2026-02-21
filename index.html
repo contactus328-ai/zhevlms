@@ -400,8 +400,18 @@ async function renderFeesManagement(area){
       editingId = null;
       alert("Fee updated");
     } else {
-      await supabaseClient.from("fees").insert([{ id: uid("fee_"), ...payload }]);
-      alert("Fee saved");
+      const { data, error } = await supabaseClient
+  .from("fees")
+  .insert([{ id: uid("fee_"), ...payload }]);
+
+if(error){
+  console.error("INSERT ERROR:", error);
+  alert("Database error: " + error.message);
+  return;
+}
+
+console.log("Inserted:", data);
+alert("Fee saved successfully");
     }
 
     renderFeesManagement(area);

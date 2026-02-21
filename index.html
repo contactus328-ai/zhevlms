@@ -349,8 +349,23 @@ async function renderFeesManagement(area){
   const formCard = el("div",{class:"card p-4 hidden"});
 
   toggleBtn.addEventListener("click",()=>{
+
+  const isHidden = formCard.classList.contains("hidden");
+
+  if(isHidden){
+    // Opening manually → reset form
+    editingId = null;
+    studentSelect.value = "";
+    parentPhoneInput.value = "";
+    frequencySelect.value = "Monthly";
+    totalInput.value = "";
+    paidInput.value = "";
+    startDateInput.value = "";
+  }
+
   formCard.classList.toggle("hidden");
 });
+	
   formCard.appendChild(el("h4",{class:"font-semibold mb-3 text-blue-700"},["Add / Update Fee"]));
 
   let editingId = null;
@@ -360,6 +375,31 @@ async function renderFeesManagement(area){
   (students || []).forEach(st=>{
     studentSelect.appendChild(el("option",{value:st.id},[st.name]));
   });
+ studentSelect.addEventListener("change", async ()=>{
+
+  const selectedId = studentSelect.value;
+  if(!selectedId) return;
+
+  const { data } = await supabaseClient
+    .from("fees")
+    .select("*")
+    .eq("student_id", selectedId)
+    .order("created_at",{ascending:false})
+    .limit(1)
+    .maybeSingle();
+
+  if(data){
+    editingId = data.id;
+
+    parentPhoneInput.value = data.parent_phone;
+    frequencySelect.value = data.frequency;
+    totalInput.value = data.total_amount;
+    paidInput.value = data.paid_amount;
+    startDateInput.value = data.due_date;
+
+    formCard.classList.remove("hidden");
+  }
+});
 
   const parentPhoneInput = el("input",{
   class:"input mb-2",
@@ -486,16 +526,23 @@ console.log("Inserted:", data);
     const actions = el("div",{class:"flex gap-2 mt-3"});
 
     const editBtn = el("button",{class:"btn-outline text-sm"},["Edit"]);
-    editBtn.addEventListener("click",()=>{
-      editingId = fee.id;
-      studentSelect.value = fee.student_id;
-      parentPhoneInput.value = fee.parent_phone;
-      frequencySelect.value = fee.frequency;
-      totalInput.value = fee.total_amount;
-      paidInput.value = fee.paid_amount;
-      startDateInput.value = fee.due_date;
-      window.scrollTo(0,0);
-    });
+ editBtn.addEventListener("click",()=>{
+  editingId = fee.id;
+
+  studentSelect.value = fee.student_id;
+  parentPhoneInput.value = fee.parent_phone;
+  frequencySelect.value = fee.frequency;
+  totalInput.value = fee.total_amount;
+  paidInput.value = fee.paid_amount;
+
+  // Reverse calculate original start date
+  startDateInput.value = fee.due_date;
+
+  // 🔥 OPEN FORM AUTOMATICALLY
+  formCard.classList.remove("hidden");
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});   
 
     const waBtn = el("button",{class:"btn-outline text-sm"},["WhatsApp"]);
     waBtn.addEventListener("click",()=>{

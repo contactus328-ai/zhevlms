@@ -348,6 +348,8 @@ async function renderFeesManagement(area){
   const toggleBtn = el("button",{class:"btn-outline w-full mb-2"},["Add / Update Fee"]);
   const formCard = el("div",{class:"card p-4 hidden"});
 
+  let editingId = null;
+
   toggleBtn.addEventListener("click",()=>{
 
   const isHidden = formCard.classList.contains("hidden");
@@ -367,8 +369,6 @@ async function renderFeesManagement(area){
 });
 	
   formCard.appendChild(el("h4",{class:"font-semibold mb-3 text-blue-700"},["Add / Update Fee"]));
-
-  let editingId = null;
 
   const studentSelect = el("select",{class:"input mb-2"});
   studentSelect.appendChild(el("option",{value:""},["Select Student"]));
@@ -415,13 +415,38 @@ parentPhoneInput.addEventListener("input", ()=>{
 });
 	
   const frequencySelect = el("select",{class:"input mb-2"});
-  ["Monthly","Quarterly","Half-Yearly","Yearly"].forEach(freq=>{
-    frequencySelect.appendChild(el("option",{value:freq},[freq]));
-  });
 
-  const totalInput = el("input",{class:"input mb-2",type:"number",placeholder:"Total Fees"});
-  const paidInput = el("input",{class:"input mb-2",type:"number",placeholder:"Fees Paid"});
-  const startDateInput = el("input",{class:"input mb-2",type:"date"});
+["Monthly","Quarterly","Half-Yearly","Yearly"].forEach(freq=>{
+  frequencySelect.appendChild(el("option",{value:freq},[freq]));
+});
+
+const totalInput = el("input",{class:"input mb-2",type:"number",placeholder:"Total Fees"});
+const paidInput = el("input",{class:"input mb-2",type:"number",placeholder:"Fees Paid"});
+
+const startDateInput = el("input",{
+  class:"input mb-2",
+  type:"date",
+  readonly:true
+});
+
+// ✅ Define AFTER startDateInput exists
+function calculateAutoDueDate(){
+  const today = new Date();
+  const freq = frequencySelect.value;
+
+  if(freq === "Monthly") today.setMonth(today.getMonth() + 1);
+  if(freq === "Quarterly") today.setMonth(today.getMonth() + 3);
+  if(freq === "Half-Yearly") today.setMonth(today.getMonth() + 6);
+  if(freq === "Yearly") today.setFullYear(today.getFullYear() + 1);
+
+  const formatted = today.toISOString().split("T")[0];
+  startDateInput.value = formatted;
+}
+
+frequencySelect.addEventListener("change", calculateAutoDueDate);
+
+// Optional: auto-fill immediately
+calculateAutoDueDate();
 
   const saveBtn = el("button",{class:"btn-primary w-full"},["Save Fee"]);
 
@@ -453,7 +478,7 @@ if(paid > total)
 
     const student = students.find(s=>s.id===studentId);
     const pending = total - paid;
-    const nextDue = calculateNextDueDate(startDate, frequency);
+    due_date: startDateInput.value,
 
     const payload = {
       student_id: studentId,

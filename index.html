@@ -269,7 +269,7 @@ aside.appendChild(logout);
   if(state.view === "admin.uploadMaterial") return renderUploadMaterial(main);
   if(state.view === "admin.createTest") return renderCreateTest(main);
 	
-  if(state.view === "admin.fees") return renderFees(main);
+  if(state.view === "admin.fees") return renderFeesManagement(main);
 
   if(state.view === "courses") return renderCourses(main);
   if(state.view === "lectures") return renderLectures(main);
@@ -297,12 +297,118 @@ aside.appendChild(logout);
 }
 
  /* =========================
-   Fees (Admin)
+   Fees Management (Admin)
    ========================= */
-async function renderFees(area){
+
+function normalizeFeeRecord(fee){
+  const total = Number(fee.total_amount ?? fee.total_fees ?? 0);
+  const paid = Number(fee.paid_amount ?? fee.fees_paid ?? 0);
+  const pending = Number(fee.pending_amount ?? Math.max(total - paid, 0));
+
+  return {
+    id: fee.id,
+    studentId: fee.student_id || "",
+    studentName: fee.student_name || "Unknown Student",
+    parentPhone: fee.parent_phone || fee.transaction_id || "",
+    frequency: fee.frequency || fee.course_name || "",
+    totalAmount: total,
+    paidAmount: paid,
+    pendingAmount: pending,
+    dueDate: fee.due_date || "",
+    status: String(fee.status || fee.payment_status || (pending <= 0 ? "paid" : "pending")).toLowerCase()
+  };
+}
+
+async function renderFeesManagement(area){
   clear(area);
 
-  area.appendChild(el("h3",{class:"text-xl font-semibold text-blue-700 mb-3"},["Pending Fees"]));
+  area.appendChild(el("h3",{class:"text-2xl font-semibold mb-4 text-blue-700"},["Fees Management"]));
+
+  const { data: students } = await supabaseClient
+    .from("user_profiles")
+    .select("id,name")
+    .eq("role","student")
+    .order("name",{ascending:true});
+
+  const formCard = el("div",{class:"card p-4 mb-4"});
+  formCard.appendChild(el("h4",{class:"font-semibold mb-3 text-blue-700"},["Add / Update Fee"]));
+
+  const studentSelect = el("select",{class:"input mb-2"});
+  studentSelect.appendChild(el("option",{value:""},["Select Student"]));
+  (students || []).forEach(st=>{
+    studentSelect.appendChild(el("option",{value:st.id},[st.name]));
+  });
+
+  const parentPhoneInput = el("input",{class:"input mb-2",placeholder:"Parent Phone"});
+  const frequencySelect = el("select",{class:"input mb-2"});
+  ["Monthly","Quarterly","Half-Yearly","Yearly"].forEach(freq=>{
+    frequencySelect.appendChild(el("option",{value:freq},[freq]));
+  });
+
+  const totalInput = el("input",{class:"input mb-2",type:"number",placeholder:"Total Fees"});
+  const paidInput = el("input",{class:"input mb-2",type:"number",placeholder:"Fees Paid"});
+  const dueDateInput = el("input",{class:"input mb-2",type:"date"});
+
+  const saveBtn = el("button",{class:"btn-primary w-full"},["Save Fee"]);
+
+  saveBtn.addEventListener("click", async ()=>{
+    const studentId = studentSelect.value;
+    const total = Number(totalInput.value || 0);
+    const paid = Number(paidInput.value || 0);
+    const phone = parentPhoneInput.value.trim();
+
+    if(!studentId) return alert("Please select a student");
+    if(!phone) return alert("Please enter parent phone");
+    if(total <= 0) return alert("Total fees must be greater than 0");
+    if(paid < 0) return alert("Paid amount cannot be negative");
+    if(paid > total) return alert("Paid amount cannot exceed total fees");
+
+    const student = (students || []).find(s=>s.id===studentId);
+    const pending = Math.max(total - paid, 0);
+
+    const payload = {
+      student_id: studentId,
+      student_name: student?.name || "",
+      parent_phone: phone,
+      frequency: frequencySelect.value,
+      total_amount: total,
+      paid_amount: paid,
+      pending_amount: pending,
+      due_date: dueDateInput.value || null,
+      status: pending <= 0 ? "paid" : "pending"
+    };
+
+    const { data: existing } = await supabaseClient
+      .from("fees")
+      .select("id")
+      .eq("student_id", studentId)
+      .eq("frequency", frequencySelect.value)
+      .eq("due_date", dueDateInput.value || null)
+      .maybeSingle();
+
+    if(existing){
+      await supabaseClient.from("fees").update(payload).eq("id", existing.id);
+      alert("Fee updated successfully");
+    } else {
+      await supabaseClient.from("fees").insert([{
+        id: uid("fee_"),
+        created_at: new Date().toISOString(),
+        ...payload
+      }]);
+      alert("Fee saved successfully");
+    }
+
+    renderFeesManagement(area);
+  });
+
+  formCard.appendChild(studentSelect);
+  formCard.appendChild(parentPhoneInput);
+  formCard.appendChild(frequencySelect);
+  formCard.appendChild(totalInput);
+  formCard.appendChild(paidInput);
+  formCard.appendChild(dueDateInput);
+  formCard.appendChild(saveBtn);
+  area.appendChild(formCard);
 
   const { data: fees } = await supabaseClient
     .from("fees")
@@ -314,49 +420,35 @@ async function renderFees(area){
     return;
   }
 
-  const list = el("div",{class:"space-y-3"});
+  const normalizedFees = fees.map(normalizeFeeRecord);
+  const activeFees = normalizedFees.filter(f=>f.pendingAmount > 0 && f.status !== "paid");
 
-  fees.forEach(fee=>{
-    if(fee.pending_amount <= 0) return;
+  activeFees.forEach(fee=>{
+    const card = el("div",{class:"card p-3 mb-3"});
+    card.appendChild(el("div",{class:"font-semibold"},[fee.studentName]));
+    card.appendChild(el("div",{class:"text-sm"},[`Pending: ₹${fee.pendingAmount}`]));
 
-    const row = el("div",{class:"card p-3 flex flex-col gap-2"});
-
-    row.appendChild(el("div",{class:"font-semibold"},[
-      fee.student_name + " • Pending ₹" + fee.pending_amount
-    ]));
-
-    row.appendChild(el("div",{class:"text-sm small-muted"},[
-      "Due: " + (fee.due_date || "")
-    ]));
-
-    const btn = el("button",{class:"btn-primary"},["Send WhatsApp"]);
-
-    btn.addEventListener("click", ()=>{
-      sendWhatsAppReminder(
-        fee.parent_phone,
-        fee.student_name,
-        fee.pending_amount,
-        fee.course_name || "",
-        fee.due_date || ""
-      );
+    const waBtn = el("button",{class:"btn-outline mt-2"},["Send WhatsApp"]);
+    waBtn.addEventListener("click",()=>{
+      sendWhatsAppReminder(fee.parentPhone, fee.studentName, fee.pendingAmount, fee.frequency, fee.dueDate);
     });
 
-    row.appendChild(btn);
-    list.appendChild(row);
+    card.appendChild(waBtn);
+    area.appendChild(card);
   });
-
-  area.appendChild(list);
 }
 
- function sendWhatsAppReminder(phone, student, pending, course, due){
+function sendWhatsAppReminder(phone, student, pending, course, due){
+  const normalizedPhone = String(phone || "").replace(/\D/g, "");
+
   const message =
 `Dear Parent,
-Fees of ₹${pending} for ${student} (${course}) is pending.
-Due date: ${due}.
+Fees of ₹${pending} for ${student} (${course || "Course"}) is pending.
+Due date: ${due || "N/A"}.
 Please clear the dues.`;
 
   const encoded = encodeURIComponent(message);
-  const url = `https://wa.me/${phone}?text=${encoded}`;
+  const url = `https://wa.me/${normalizedPhone}?text=${encoded}`;
 
   window.open(url, "_blank");
 }

@@ -1176,14 +1176,14 @@ Thank you.`;
   }
 
   for(const f of activeFees){
-    const remaining = f.total_fees - f.fees_paid;
+    const remaining = f.total_amount - f.paid_amount;
 
     const card = el("div",{class:"card p-3 mb-3"});
     card.appendChild(el("div",{class:"font-semibold"},[f.student_name]));
     card.appendChild(el("div",{class:"text-sm small-muted"},[`Parent: ${f.parent_phone}`]));
     card.appendChild(el("div",{class:"text-sm"},[`Frequency: ${f.frequency}`]));
-    card.appendChild(el("div",{class:"text-sm"},[`Total: ₹${f.total_fees}`]));
-    card.appendChild(el("div",{class:"text-sm"},[`Paid: ₹${f.fees_paid}`]));
+    card.appendChild(el("div",{class:"text-sm"},[`Total: ₹${f.total_amount}`]));
+    card.appendChild(el("div",{class:"text-sm"},[`Paid: ₹${f.paid_amount}`]));
     card.appendChild(el("div",{class:"text-sm mb-2"},[`Remaining: ₹${remaining}`]));
     card.appendChild(el("div",{class:"text-sm mb-3"},[`Due: ${f.due_date}`]));
 

@@ -9,6 +9,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Supabase UMD -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <style>
@@ -480,13 +481,29 @@ if(paid < 0)
 if(paid > total)
   return alert("Paid amount cannot exceed total amount");
 
-    const student = students.find(s=>s.id===studentId);
-    let pending = total - paid;
+const student = students.find(s=>s.id===studentId);
+
+let pending = total - paid;
 let nextDueDate = startDate;
 
 if(pending <= 0){
+
   pending = 0;
+
+  // Move to next cycle
   nextDueDate = calculateNextDueDate(startDate, frequency);
+
+  // 🔥 Generate & Upload Receipt
+  const pdfUrl = await generateAndUploadReceipt(
+    studentId,
+    student.name,
+    phone,
+    total
+  );
+
+  if(pdfUrl){
+    sendReceiptPDFWhatsApp(phone, pdfUrl);
+  }
 }
 
     const payload = {
@@ -644,12 +661,31 @@ function sendWhatsAppReminder(phone, student, pending, course, due){
   const message =
 `Dear Parent,
 Fees of ₹${pending} for ${student} (${course}) is pending.
-Next Due Date: ${due}.
+Due Date: ${due}.
 Please clear the dues.`;
 
   window.open(`https://wa.me/${number}?text=${encodeURIComponent(message)}`,"_blank");
 }
 
+	function sendReceiptPDFWhatsApp(phone, pdfUrl){
+
+  const number = String(phone).replace(/\D/g,"");
+
+  const message =
+`🧾 Payment Received Successfully!
+
+Download Receipt:
+${pdfUrl}
+
+Thank you.
+- Studies LMS`;
+
+  window.open(
+    `https://wa.me/${number}?text=${encodeURIComponent(message)}`,
+    "_blank"
+  );
+}
+	
 /* =========================
    DASHBOARD
    (tiles to navigate instead of sidebar duplicates)
@@ -1333,6 +1369,63 @@ function renderChangePassword(area){
   reader.readAsArrayBuffer(file);
 }
 
+	async function generateAndUploadReceipt(studentId, studentName, phone, amount){
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  const receiptNo = "REC-" + Date.now();
+  const today = new Date().toLocaleDateString();
+
+  // ===== Design Receipt =====
+  doc.setFontSize(18);
+  doc.text("Studies LMS", 20, 20);
+
+  doc.setFontSize(14);
+  doc.text("Payment Receipt", 20, 30);
+
+  doc.setFontSize(12);
+  doc.text(`Receipt No: ${receiptNo}`, 20, 45);
+  doc.text(`Date: ${today}`, 20, 55);
+  doc.text(`Student Name: ${studentName}`, 20, 65);
+  doc.text(`Amount Paid: ₹${amount}`, 20, 75);
+  doc.text("Status: Fully Paid", 20, 85);
+
+  // ===== Convert to Blob =====
+  const pdfBlob = doc.output("blob");
+  const fileName = `receipt_${receiptNo}.pdf`;
+
+  // ===== Upload to Supabase Storage =====
+  const { error } = await supabaseClient.storage
+    .from("receipts")
+    .upload(fileName, pdfBlob);
+
+  if(error){
+    alert("Receipt upload failed: " + error.message);
+    return null;
+  }
+
+  // ===== Get Public URL =====
+  const { data } = supabaseClient.storage
+    .from("receipts")
+    .getPublicUrl(fileName);
+
+  const publicUrl = data.publicUrl;
+
+  // ===== Save in receipts table =====
+  await supabaseClient.from("receipts").insert([{
+    id: uid("rec_"),
+    student_id: studentId,
+    student_name: studentName,
+    parent_phone: phone,
+    amount,
+    receipt_number: receiptNo,
+    file_url: publicUrl,
+    created_at: new Date().toISOString()
+  }]);
+
+  return publicUrl;
+}
 restoreSession();
 render();
 

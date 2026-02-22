@@ -477,7 +477,13 @@ if(paid > total)
   return alert("Paid amount cannot exceed total amount");
 
     const student = students.find(s=>s.id===studentId);
-    const pending = total - paid;
+    let pending = total - paid;
+let nextDueDate = startDate;
+
+if(pending <= 0){
+  pending = 0;
+  nextDueDate = calculateNextDueDate(startDate, frequency);
+}
 
     const payload = {
       student_id: studentId,
@@ -487,7 +493,7 @@ if(paid > total)
       total_amount: total,
       paid_amount: paid,
       pending_amount: pending,
-	  due_date: startDateInput.value,
+	  due_date: nextDueDate,
       status: pending <= 0 ? "paid" : "pending",
       created_at: new Date().toISOString()
     };
@@ -530,7 +536,7 @@ console.log("Inserted:", data);
   const { data: fees } = await supabaseClient
     .from("fees")
     .select("*")
-    .order("created_at",{ascending:false});
+    .order("due_date",{ascending:false});
 
   if(!fees || fees.length===0){
     area.appendChild(el("div",{class:"text-gray-500"},["No fee records found"]));

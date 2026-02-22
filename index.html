@@ -355,15 +355,17 @@ async function renderFeesManagement(area){
   const isHidden = formCard.classList.contains("hidden");
 
   if(isHidden){
-    // Opening manually → reset form
-    editingId = null;
-    studentSelect.value = "";
-    parentPhoneInput.value = "";
-    frequencySelect.value = "Monthly";
-    totalInput.value = "";
-    paidInput.value = "";
-    startDateInput.value = "";
-  }
+
+  editingId = null;
+  studentSelect.value = "";
+  parentPhoneInput.value = "";
+  frequencySelect.value = "Monthly";
+  totalInput.value = "";
+  paidInput.value = "";
+
+  // 🔥 Auto set next 1 month due date
+  calculateAutoDueDate();
+}
 
   formCard.classList.toggle("hidden");
 });
@@ -426,20 +428,22 @@ const paidInput = el("input",{class:"input mb-2",type:"number",placeholder:"Fees
 const startDateInput = el("input",{
   class:"input mb-2",
   type:"date",
-  readonly:true
 });
 
 // ✅ Define AFTER startDateInput exists
 function calculateAutoDueDate(){
+
   const today = new Date();
   const freq = frequencySelect.value;
 
-  if(freq === "Monthly") today.setMonth(today.getMonth() + 1);
-  if(freq === "Quarterly") today.setMonth(today.getMonth() + 3);
-  if(freq === "Half-Yearly") today.setMonth(today.getMonth() + 6);
-  if(freq === "Yearly") today.setFullYear(today.getFullYear() + 1);
+  let nextDate = new Date(today);
 
-  const formatted = today.toISOString().split("T")[0];
+  if(freq === "Monthly") nextDate.setMonth(today.getMonth() + 1);
+  if(freq === "Quarterly") nextDate.setMonth(today.getMonth() + 3);
+  if(freq === "Half-Yearly") nextDate.setMonth(today.getMonth() + 6);
+  if(freq === "Yearly") nextDate.setFullYear(today.getFullYear() + 1);
+
+  const formatted = nextDate.toISOString().split("T")[0];
   startDateInput.value = formatted;
 }
 

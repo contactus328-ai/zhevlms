@@ -543,9 +543,23 @@ console.log("Inserted:", data);
     return;
   }
 
-  fees.forEach(fee=>{
-    const card = el("div",{class:"card p-4 mb-3"});
-    card.appendChild(el("div",{class:"font-semibold text-lg"},[fee.student_name]));
+fees.forEach(fee=>{
+	
+    // 🔴 Overdue Detection Logic
+    const today = new Date().toISOString().split("T")[0];
+    const isOverdue = fee.due_date < today && Number(fee.pending_amount) > 0;
+	
+    const card = el("div",{
+  class:"card p-4 mb-3 " + (isOverdue ? "border border-red-500 bg-red-50" : "")
+});
+	
+card.appendChild(
+  el("div",
+    {class:"font-semibold text-lg " + (isOverdue ? "text-red-600" : "")},
+    [fee.student_name]
+  )
+);
+	
     card.appendChild(el("div",{class:"text-sm"},["Parent Phone: "+fee.parent_phone]));
     card.appendChild(el("div",{class:"text-sm"},["Frequency: "+fee.frequency]));
     card.appendChild(el("div",{class:"text-sm"},["Total: ₹"+fee.total_amount]));

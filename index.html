@@ -1065,14 +1065,13 @@ wrap.appendChild(fileInput);
 
   const temp = window.tempEditTest || null;
 	
-  window.currentQuestions = [];
-  let questions = window.currentQuestions;
-
+ let questions = [];
 
 if (temp && temp.questions && Array.isArray(temp.questions)) {
-    // If editing, load questions from Supabase
     questions = JSON.parse(JSON.stringify(temp.questions));
 }
+
+window.currentQuestions = questions;
 
   function renderQs(){ clear(qArea); questions.forEach((q, idx)=>{
     const box = el("div",{class:"card p-3"});
@@ -1470,7 +1469,7 @@ function renderChangePassword(area){
 
   // ===== Convert to Blob =====
   const pdfBlob = doc.output("blob");
-  const fileName = `receipt_${receiptNo}.pdf`;
+  const fileName = `receipt_${receiptNo}_${uid()}.pdf`;
 
   // ===== Upload to Supabase Storage =====
   const { error } = await supabaseClient.storage

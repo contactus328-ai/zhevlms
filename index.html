@@ -198,16 +198,26 @@ const hamburger = el("button",{
 },["☰ Menu"]);
 
 const aside = el("aside",{
-  class:"col-span-1 card p-4 hidden md:block",
+  class:"fixed inset-0 bg-black/40 z-50 hidden md:static md:block md:col-span-1 md:bg-transparent",
   id:"sidebar"
 });
 
-hamburger.addEventListener("click",()=>{
-  aside.classList.toggle("hidden");
+const sidebarPanel = el("div",{
+  class:"absolute left-0 top-0 h-full w-72 bg-white shadow-lg p-4 md:static md:w-auto md:h-auto md:shadow-none md:bg-transparent"
 });
-  aside.appendChild(el("div",{class:"text-xl font-bold text-blue-700 mb-3"},["Studies"]));
-  aside.appendChild(el("div",{class:"font-semibold"},[state.user.name]));
-  aside.appendChild(el("div",{class:"small-muted text-sm mb-3"},[state.user.email + " • " + state.user.role]));
+
+sidebarPanel.appendChild(sidebarPanel);
+
+	// Close sidebar when clicking outside (mobile)
+aside.addEventListener("click",(e)=>{
+  if(e.target === aside && window.innerWidth < 768){
+    aside.classList.add("hidden");
+  }
+});
+	
+  sidebarPanel.appendChild(el("div",{class:"text-xl font-bold text-blue-700 mb-3"},["Studies"]));
+  sidebarPanel.appendChild(el("div",{class:"font-semibold"},[state.user.name]));
+  sidebarPanel.appendChild(el("div",{class:"small-muted text-sm mb-3"},[state.user.email + " • " + state.user.role]));
 
   // minimal left nav: Dashboard + admin pages (no Courses/Lectures/Materials/Tests entries)
   const nav = el("div",{class:"space-y-2 mb-4 flex flex-col"});
@@ -237,7 +247,7 @@ nav.appendChild(createTestBtn);
   } else {
     addNavBtn("Change Password","student.changePassword");
   }
-aside.appendChild(nav);
+sidebarPanel.appendChild(nav);
 
 const logout = el("button",{class:"btn-outline-danger w-full mt-2"},["Logout"]);
 logout.addEventListener("click", ()=> { 
@@ -248,7 +258,7 @@ state.history=[];
 history.replaceState({}, "");
 render();
 });
-aside.appendChild(logout);
+sidebarPanel.appendChild(logout);
 
   // Main content
   const main = el("main",{class:"col-span-1 md:col-span-3 card p-4 md:p-6"});

@@ -206,8 +206,6 @@ const sidebarPanel = el("div",{
   class:"absolute left-0 top-0 h-full w-72 bg-white shadow-lg p-4 md:static md:w-auto md:h-auto md:shadow-none md:bg-transparent"
 });
 
-sidebarPanel.appendChild(sidebarPanel);
-
 	// Close sidebar when clicking outside (mobile)
 aside.addEventListener("click",(e)=>{
   if(e.target === aside && window.innerWidth < 768){
@@ -466,96 +464,98 @@ calculateAutoDueDate();
   const saveBtn = el("button",{class:"btn-primary w-full"},["Save Fee"]);
 
   saveBtn.addEventListener("click", async ()=>{
-    const studentId = studentSelect.value;
-    const phone = parentPhoneInput.value.trim();
-    const total = Number(totalInput.value);
-    const paid = Number(paidInput.value);
-    const frequency = frequencySelect.value;
-    const startDate = startDateInput.value;
 
-if(!studentId || !phone || !total || !startDate)
-  return alert("All fields required");
+  const studentId = studentSelect.value;
+  const phone = parentPhoneInput.value.trim();
+  const total = Number(totalInput.value);
+  const paid = Number(paidInput.value);
+  const frequency = frequencySelect.value;
+  const startDate = startDateInput.value;
 
-if(phone.length !== 10)
-  return alert("Parent phone must be exactly 10 digits");
+  if(!studentId || !phone || !total || !startDate)
+    return alert("All fields required");
 
-if(!/^[6-9]\d{9}$/.test(phone))
-  return alert("Enter valid Indian mobile number (must start with 6-9)");
+  if(phone.length !== 10)
+    return alert("Parent phone must be exactly 10 digits");
 
-if(total <= 0)
-  return alert("Total amount must be greater than 0");
+  if(!/^[6-9]\d{9}$/.test(phone))
+    return alert("Enter valid Indian mobile number (must start with 6-9)");
 
-if(paid < 0)
-  return alert("Paid amount cannot be negative");
+  if(total <= 0)
+    return alert("Total amount must be greater than 0");
 
-if(paid > total)
-  return alert("Paid amount cannot exceed total amount");
+  if(paid < 0)
+    return alert("Paid amount cannot be negative");
 
-const student = students.find(s=>s.id===studentId);
+  if(paid > total)
+    return alert("Paid amount cannot exceed total amount");
 
-let pending = total - paid;
-let nextDueDate = startDate;
+  const student = students.find(s=>s.id===studentId);
 
-if(pending <= 0){
+  let pending = total - paid;
+  let nextDueDate = startDate;
 
-  pending = 0;
-
-  // Move forward from current due date
-  nextDueDate = calculateNextDueDate(
-    startDateInput.value,
-    frequency
-  );
-}
-
-  // 🔥 Generate & Upload Receipt
-  const pdfUrl = await generateAndUploadReceipt(
-    studentId,
-    student.name,
-    phone,
-    total
-  );
-
-  if(pdfUrl){
-    sendReceiptPDFWhatsApp(phone, pdfUrl);
+  if(pending <= 0){
+    pending = 0;
+    nextDueDate = calculateNextDueDate(startDate, frequency);
   }
-}
 
-    const payload = {
-      student_id: studentId,
-      student_name: student.name,
-      parent_phone: phone,
-      frequency,
-      total_amount: total,
-      paid_amount: paid,
-      pending_amount: pending,
-	  due_date: nextDueDate,
-      status: pending <= 0 ? "paid" : "pending",
-      created_at: new Date().toISOString()
-    };
+  const payload = {
+    student_id: studentId,
+    student_name: student.name,
+    parent_phone: phone,
+    frequency,
+    total_amount: total,
+    paid_amount: paid,
+    pending_amount: pending,
+    due_date: nextDueDate,
+    status: pending <= 0 ? "paid" : "pending",
+    created_at: new Date().toISOString()
+  };
 
-    if(editingId){
-      await supabaseClient.from("fees").update(payload).eq("id", editingId);
-      editingId = null;
-      alert("Fee updated");
-    } else {
-      const { data, error } = await supabaseClient
-  .from("fees")
-  .insert([{ id: uid("fee_"), ...payload }]);
+  let error;
 
-if(error){
-  console.error("INSERT ERROR:", error);
-  alert("Database error: " + error.message);
-  return;
-}
+  if(editingId){
+    const res = await supabaseClient
+      .from("fees")
+      .update(payload)
+      .eq("id", editingId);
 
-console.log("Inserted:", data);
-    alert("Fee saved successfully");
+    error = res.error;
+  } else {
+    const res = await supabaseClient
+      .from("fees")
+      .insert([{ id: uid("fee_"), ...payload }]);
+
+    error = res.error;
+  }
+
+  if(error){
+    alert("Database error: " + error.message);
+    return;
+  }
+
+  alert("Fee saved successfully");
+
+  // ✅ Generate receipt ONLY if fully paid
+  if(pending === 0){
+    const pdfUrl = await generateAndUploadReceipt(
+      studentId,
+      student.name,
+      phone,
+      total
+    );
+
+    if(pdfUrl){
+      sendReceiptPDFWhatsApp(phone, pdfUrl);
     }
-	formCard.classList.add("hidden");
+  }
 
-    renderFeesManagement(area);
-  });
+  formCard.classList.add("hidden");
+  renderFeesManagement(area);
 
+});
+	
   formCard.appendChild(studentSelect);
   formCard.appendChild(parentPhoneInput);
   formCard.appendChild(frequencySelect);

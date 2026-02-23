@@ -490,11 +490,12 @@ if(pending <= 0){
 
   pending = 0;
 
-  // Move to next cycle
+  // Move forward from current due date
   nextDueDate = calculateNextDueDate(
-  fee?.due_date || startDate,
-  frequency
-);
+    startDateInput.value,
+    frequency
+  );
+}
 
   // 🔥 Generate & Upload Receipt
   const pdfUrl = await generateAndUploadReceipt(
@@ -570,8 +571,10 @@ console.log("Inserted:", data);
 fees.forEach(fee=>{
 	
     // 🔴 Overdue Detection Logic
-    const today = new Date().toISOString().split("T")[0];
-    const isOverdue = fee.due_date < today && Number(fee.pending_amount) > 0;
+    const today = new Date();
+    const due = new Date(fee.due_date);
+
+    const isOverdue = due < today && Number(fee.pending_amount) > 0;
 	
     const card = el("div",{
   class:"card p-4 mb-3 " + (isOverdue ? "border border-red-500 bg-red-50" : "")

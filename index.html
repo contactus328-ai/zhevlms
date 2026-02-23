@@ -206,6 +206,8 @@ const sidebarPanel = el("div",{
   class:"absolute left-0 top-0 h-full w-72 bg-white shadow-lg p-4 md:static md:w-auto md:h-auto md:shadow-none md:bg-transparent"
 });
 
+	aside.appendChild(sidebarPanel);
+
 	// Close sidebar when clicking outside (mobile)
 aside.addEventListener("click",(e)=>{
   if(e.target === aside && window.innerWidth < 768){
@@ -266,6 +268,12 @@ sidebarPanel.appendChild(logout);
   ]));
 
   app.appendChild(hamburger);
+	hamburger.addEventListener("click", ()=>{
+  const sb = document.getElementById("sidebar");
+  if(sb){
+    sb.classList.remove("hidden");
+  }
+});
   container.appendChild(aside);
   container.appendChild(main);
   app.appendChild(container);
@@ -1083,6 +1091,8 @@ if (temp && temp.questions && Array.isArray(temp.questions)) {
     const delQ = el("button",{class:"btn-outline text-sm ml-2 text-red-600"},["Delete question"]); delQ.addEventListener("click", ()=> { if(!confirm("Are you sure?")) return; const i=questions.findIndex(x=>x.id===q.id); if(i>-1) questions.splice(i,1); renderQs(); });
     box.appendChild(opts); box.appendChild(addOpt); box.appendChild(delQ); qArea.appendChild(box);
   }); }
+
+	window.renderQs = renderQs;
 
   const addQ = el("button",{class:"btn-outline"},["Add Question"]); addQ.addEventListener("click", ()=> { questions.push({ id: uid("q_"), text:"", options:[ {id:uid("o_"), text:""}, {id:uid("o_"), text:""} ], correctOptionId:null }); renderQs(); });
 

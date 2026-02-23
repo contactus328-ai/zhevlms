@@ -491,7 +491,10 @@ if(pending <= 0){
   pending = 0;
 
   // Move to next cycle
-  nextDueDate = calculateNextDueDate(startDate, frequency);
+  nextDueDate = calculateNextDueDate(
+  fee?.due_date || startDate,
+  frequency
+);
 
   // 🔥 Generate & Upload Receipt
   const pdfUrl = await generateAndUploadReceipt(
@@ -655,7 +658,56 @@ actions.appendChild(deleteBtn);
     area.appendChild(card);
   });
 }
+	
+function generateReceiptHTML(fee){
+  const duration = getFeeDuration(fee.frequency);
 
+  return `
+  <div style="width:100%;max-width:1200px;margin:auto;padding:60px;font-family:Arial;border:1px solid #ddd;">
+    
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;">
+      <h1 style="color:#2563eb;">Studies LMS</h1>
+      <h2 style="margin:0;">Receipt of Payment</h2>
+    </div>
+
+    <hr/>
+
+    <div style="margin-top:20px;font-size:16px;">
+      <p><strong>Student Name:</strong> ${fee.student_name}</p>
+      <p><strong>Parent Phone:</strong> ${fee.parent_phone}</p>
+      <p><strong>Frequency:</strong> ${fee.frequency}</p>
+      <p><strong>Payment Period:</strong> ${duration}</p>
+    </div>
+
+    <table style="width:100%;margin-top:30px;border-collapse:collapse;font-size:16px;">
+      <tr>
+        <th style="text-align:left;border-bottom:1px solid #ccc;padding:8px;">Description</th>
+        <th style="text-align:right;border-bottom:1px solid #ccc;padding:8px;">Amount (₹)</th>
+      </tr>
+      <tr>
+        <td style="padding:8px;">Total Fees</td>
+        <td style="text-align:right;padding:8px;">${fee.total_amount}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px;">Amount Paid</td>
+        <td style="text-align:right;padding:8px;">${fee.paid_amount}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px;">Pending</td>
+        <td style="text-align:right;padding:8px;">${fee.pending_amount}</td>
+      </tr>
+    </table>
+
+    <hr style="margin-top:30px;"/>
+
+    <div style="margin-top:20px;text-align:right;">
+      <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+      <p style="margin-top:40px;">Authorized Signature</p>
+    </div>
+
+  </div>
+  `;
+}
 function sendWhatsAppReminder(phone, student, pending, course, due){
   const number = String(phone).replace(/\D/g,"");
   const message =
